@@ -6,27 +6,33 @@ class Minimap {
 
 	constructor()
 	{
-		this.VERSION = "";
-		this.CDN_URL = "";
+		this.CANVAS_CHAMPION = [];
 
-		this.JSON_DATA_CHAMP_IMG = new Array();
-		this.CANVAS_CHAMPION_IMG = new Array();
-		this.CANVAS_MAP_IMG = "";
+		this.MAP_MAX_WIDTH = 512;
+		this.MAP_MAX_HEIGHT = 512;
+		this.CHAMP_IMG_SCALE = 0.2;
+
+		this.isInit = true;
 	}
 
 
 	////////////////////////////////////////////////////////////////////////////////////
 
-	Init()
+	Init(data)
 	{
+		console.log("Init : Minimap");
+		console.log(data);
+
 		this.InitMinimapCanvas();
-		this.InitPlayerCanvas();
+		this.InitChampionCanvas(data);
 	}
 
 	////////////////////////////////////////////////////////////////////////////////////
 
 	InitMinimapCanvas()
 	{
+		var targetTag = $('minimap canvas')[0];
+
 		var ctx = $('minimap canvas')[0].getContext('2d');
 
 		var img = new Image();
@@ -40,17 +46,71 @@ class Minimap {
 		}, false);
 	}
 	
-	InitPlayerCanvas()
+	InitChampionCanvas(url_data)
 	{
-		var target = document.getElementsByTagName("minimap_champion")[0];
+		var self = this;
+		var target = $('minimap_champion')[0];
 		var newTag;
+    	var loadedCount = 1;
 
-		for(var i = 1 ; i <= 10 ; ++i)
+		for(var i = 0 ; i < url_data.length ; ++i)
 		{
-			newTag = document.createElement("player"+i);
-			newTag.innerHTML = "<canvas></canvas>";
-			
+			self.CANVAS_CHAMPION[i] = {};
+
+			newTag = document.createElement("canvas");
 			target.appendChild(newTag);
+
+			newTag.width = self.MAP_MAX_WIDTH;
+			newTag.height = self.MAP_MAX_HEIGHT;
+			self.CANVAS_CHAMPION[i].canvas = newTag;
+
+			self.CANVAS_CHAMPION[i].img = new Image();
+			self.CANVAS_CHAMPION[i].img.src = url_data[i];
+
+			self.CANVAS_CHAMPION[i].img.addEventListener('load', function()
+			{
+				if(loadedCount == url_data.length)
+				{
+					var width;
+					var height;
+					var img_width, img_height;
+					var ctx;
+
+					for(var i = 0 ; i < url_data.length ; ++i)
+					{
+						img_width = self.CANVAS_CHAMPION[i].img.width;
+						img_height = self.CANVAS_CHAMPION[i].img.height
+						width = img_width * self.CHAMP_IMG_SCALE;
+						height = img_height * self.CHAMP_IMG_SCALE;
+
+						ctx = self.CANVAS_CHAMPION[i].canvas.getContext('2d');
+						ctx.drawImage(self.CANVAS_CHAMPION[i].img, 0, 0, img_width, img_height, 0, 0 , width, height);
+					}
+
+					////////////////////////////////////////////////////////////////////////////////////
+					self.isInit = false;
+					////////////////////////////////////////////////////////////////////////////////////
+				}
+				loadedCount++;
+			}, false);
 		}
 	}
+	
+	////////////////////////////////////////////////////////////////////////////////////
+
+	TranslateChampion(index, x, y)
+	{
+		var ctx = this.CANVAS_CHAMPION[index].canvas.getContext('2d');
+		var img_width = this.CANVAS_CHAMPION[index].img.width;
+		var img_height = this.CANVAS_CHAMPION[index].img.height;
+		var width = img_width * this.CHAMP_IMG_SCALE;
+		var height = img_height * this.CHAMP_IMG_SCALE;
+
+		ctx.translate(x, y);
+		ctx.drawImage(this.CANVAS_CHAMPION[index].img, 0, 0, img_width, img_height, 0, 0 , width, height);
+	}
+
+	////////////////////////////////////////////////////////////////////////////////////
+
+	IsInit() { return this.isInit; }
 }

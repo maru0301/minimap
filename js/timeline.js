@@ -5,7 +5,7 @@
 
 class TimeLine {
 
-	constructor(map)
+	constructor()
 	{
 		this.VERSION = "";
 		this.CDN_URL = "";
@@ -17,7 +17,8 @@ class TimeLine {
 
 		this.MINIMAP = new Minimap();
 
-		console.log(this.MINIMAP);
+		this.INTERVAL = Math.floor(1000 / 60 * 10);
+		this.MAIN_THREAD_NUM = 0;
 	}
 
 	GetMatchData(data)
@@ -65,7 +66,6 @@ class TimeLine {
 //			{ error_id: this.ERROR_ID_MATCH_TIMELINE_GET_ERROR,	url: './php/main.php', data: { func:"GetMatchTimeline", realm:gameRealm, id:gameId, hash:gameHash },  },
 			{ url: './php/main.php', data: { func:"GetRealm" },  },
 			{ url: './php/main.php', data: { func:"GetVersion" },  },
-			{ url: './php/main.php', data: { func:"GetChampionImage", ver:this.VERSION },  },
 			{ url: './data/json/wcs.json', data: {},  },
 			{ url: './data/json/TRLT3-70046.json', data: {},  },
 		];
@@ -102,16 +102,91 @@ class TimeLine {
 			console.log(json);
 
 			var realmJson = json[0];
-			var matchDetailJson = json[3];
+			var versionJson = json[1];
+			var matchDetailJson = json[2];
+			var timelineJson = json[3];
 
 			////////////////////////////////////////////////////////////////////////////////////////
 
-			self.CDN_URL = realJson.realmJson.cdn;
-
-			////////////////////////////////////////////////////////////////////////////////////////
-
-//			self.VERSION = self.GetVersion(matchDetailData.game.gameVer, versionJson);
+			self.CDN_URL = realmJson.cdn;
 			self.GetMatchDetailData(matchDetailJson);
+			self.VERSION = self.GetVersion(self.MATCHDETAIL_DATA.game.gameVer, versionJson);
+			self.JSON_DATA_TIMELINE = json[3];
+
+			////////////////////////////////////////////////////////////////////////////////////////
+
+			self.InitStaticData();
+		});
+
+		$.when.apply(null, jqXHRList).fail(function ()
+		{
+			console.log("Fail : Main");
+			console.log(jqXHRList);
+
+			for( var i = 0 ; i < jqXHRList.length ; ++i )
+			{
+				if( jqXHRList[i].statusText === "error" )
+				{
+					console.log(i);
+				}
+			}
+		});
+	}
+
+	InitStaticData()
+	{
+		var self = this;
+
+		var request = [
+			{ url: './php/main.php', data: { func:"GetChampionImage", ver:this.VERSION },  },
+			{ url: './php/main.php', data: { func:"GetItem", ver:this.VERSION },  },
+		];
+		
+		var jqXHRList = [];
+
+		for( var i = 0, max = request.length ; i < max ; ++i )
+		{
+			jqXHRList.push($.ajax(
+			{
+				url: request[i].url,
+				type: 'GET',
+				dataType: 'json',
+				data: request[i].data,
+			}));
+		}
+
+		
+		$.when.apply(null, jqXHRList).done(function ()
+		{
+			console.log("Success : InitStaticData");
+
+			var json = [];
+			var statuses = [];
+			var jqXHRResultList = [];
+			
+			for( var i = 0, max = arguments.length ; i < max ; ++i )
+			{
+				var result = arguments[i];
+				json.push(result[0]);
+				statuses.push(result[1]);
+				jqXHRResultList.push(result[3]);
+			}
+
+			console.log(json);
+
+			////////////////////////////////////////////////////////////////////////////////////////
+
+			var champImgJson = json[0];
+
+			for(var key in champImgJson.data)
+				self.JSON_DATA_CHAMP_IMG.push(champImgJson.data[key]);
+			
+			self.JSON_DATA_CHAMP_IMG.sort(function(a, b)
+			{
+					if(a.key < b.key) return -1;
+					if(a.key > b.key) return 1;
+					if(a.key == b.key) return 0;
+			});
 
 			////////////////////////////////////////////////////////////////////////////////////////
 
@@ -119,18 +194,23 @@ class TimeLine {
 			for(var i = 0 ; i < self.MATCHDETAIL_DATA.team.length ; ++i)
 			{
 				for(var j = 0 ; j < self.MATCHDETAIL_DATA.team[i].player.length ; ++j)
-				{
 					champ_id.push(self.MATCHDETAIL_DATA.team[i].player[j].championId);
-				}
 			}
 
 			var data = {};
 
-			data.champ_id = champ_id;
+			data.champId = champ_id;
 			data.version = self.CDN_URL;
-			data.version;
+			data.champImgJson = self.JSON_DATA_CHAMP_IMG;
 			
-			self.MINIMAP.Init(data);
+			var img_url = [];
+
+			for(var i = 0 ; i < champ_id.length ; ++i)
+				img_url.push( self.CDN_URL + "/" + self.VERSION + "/img/champion/" + self.GetChampionImgName(champ_id[i]) );
+			
+			self.MINIMAP.Init(img_url);
+			
+			self.MAIN_THREAD_NUM = setInterval(self.Main, self.INTERVAL, self);
 		});
 
 		$.when.apply(null, jqXHRList).fail(function ()
@@ -194,6 +274,9 @@ class TimeLine {
 		console.log(json);
 
 		this.MATCHDETAIL_DATA.game = {};
+		this.MATCHDETAIL_DATA.game.gameVer = json.gameVersion;
+
+		////////////////////////////////////////////////////////////////////////////////////////
 
 		this.MATCHDETAIL_DATA.team = [];
 
@@ -208,7 +291,6 @@ class TimeLine {
 
 	GetMatchDetailPlayerData(json)
 	{
-
 		for(var i = 0 ; i < this.MATCHDETAIL_DATA.team.length ; ++i)
 		{
 			this.MATCHDETAIL_DATA.team[i].player = [];
@@ -227,6 +309,37 @@ class TimeLine {
 	UpdateFrame(frame)
 	{
 		console.log("UpdateFrame");
+		this.MINIMAP.TranslateChampion(0, 50, 50);
+	}
+
+	////////////////////////////////////////////////////////////////////////////////////
+
+	CreateFrameSlideBar()
+	{
+		var max = this.JSON_DATA_TIMELINE[this.JSON_DATA_TIMELINE.length-1].t;
+		var self = this;
+
+		$('#FrameSlideBar')[0].outerHTML = "<input type='range' id='FrameSlideBar' name='num' min='0' max='" + max + "' step='1' value='0'><span id='val'> 0</span><br>";
+		$('#FrameSlideBar')[0].onchange = function() { self.ChangeFrameSlideBar(self) };
+	}
+
+	ChangeFrameSlideBar(self)
+	{
+		console.log($('#val'));
+		$('#val')[0].innerHTML = $('#FrameSlideBar')[0].value;
+
+		self.MINIMAP.TranslateChampion(0, 10 , 0);
+	}
+
+	////////////////////////////////////////////////////////////////////////////////////
+
+	Main(self)
+	{
+		if( self.MINIMAP.IsInit() == false )
+		{
+			clearInterval(self.MAIN_THREAD_NUM);
+			self.CreateFrameSlideBar();
+		}
 	}
 }
 

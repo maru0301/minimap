@@ -1,0 +1,13 @@
+minimap canvas {
+	position: absolute;
+	z-index: 0;
+}
+
+minimap_champion canvas {
+	position: absolute;
+	z-index: 1;
+}
+
+input {
+	width : 300px;
+}
