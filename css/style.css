@@ -11,3 +11,7 @@ minimap_champion canvas {
 input {
 	width : 300px;
 }
+
+#Play {
+	width : 50px;	
+}

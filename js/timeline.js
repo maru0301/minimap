@@ -17,8 +17,16 @@ class TimeLine {
 
 		this.MINIMAP = new Minimap();
 
-		this.INTERVAL = Math.floor(1000 / 60 * 10);
+		this.INIT_WAIT_INTERVAL = Math.floor(1000 / 60 * 10);
 		this.MAIN_THREAD_NUM = 0;
+
+		this.AUTO_PLAY_INTERVAL = 1000;
+		this.AUTO_PLAY_THREAD_NUM = 0;
+		this.isPlay = false;
+
+		this.MOVE_COMPLEMENT_INTERVAL = 30;
+		this.MOVE_COMPLEMENT_THREAD_NUM = 0;
+		this.COMPLAMENT_FRAME = 0;
 	}
 
 	GetMatchData(data)
@@ -210,7 +218,7 @@ class TimeLine {
 			
 			self.MINIMAP.Init(img_url);
 			
-			self.MAIN_THREAD_NUM = setInterval(self.Main, self.INTERVAL, self);
+			self.MAIN_THREAD_NUM = setInterval(self.Main, self.INIT_WAIT_INTERVAL, self);
 		});
 
 		$.when.apply(null, jqXHRList).fail(function ()
@@ -308,27 +316,145 @@ class TimeLine {
 
 	UpdateFrame(frame)
 	{
-		console.log("UpdateFrame");
-		this.MINIMAP.TranslateChampion(0, 50, 50);
+		var time = this.JSON_DATA_TIMELINE[frame].t;
+		this.SetTimeValue(time);
+
+		var x = 0, y = 0;
+
+		for(var i = 0 ; i < this.MATCHDETAIL_DATA.team.length ; ++i)
+		{
+			for(var j = 0 ; j < this.MATCHDETAIL_DATA.team[i].player.length ; ++j)
+			{
+				for(var k in this.JSON_DATA_TIMELINE[frame].playerStats)
+				{
+					if( this.MATCHDETAIL_DATA.team[i].player[j].participantId == this.JSON_DATA_TIMELINE[frame].playerStats[k].participantId )
+					{
+						x = this.JSON_DATA_TIMELINE[frame].playerStats[k].x;
+						y = this.JSON_DATA_TIMELINE[frame].playerStats[k].y;
+						this.MINIMAP.TranslateChampion(k-1, x, y);
+						break;
+					}
+				}
+			}
+		}
 	}
 
 	////////////////////////////////////////////////////////////////////////////////////
 
 	CreateFrameSlideBar()
 	{
-		var max = this.JSON_DATA_TIMELINE[this.JSON_DATA_TIMELINE.length-1].t;
+		var max = this.JSON_DATA_TIMELINE.length-1;
+		var min = this.JSON_DATA_TIMELINE[0].t;
 		var self = this;
 
-		$('#FrameSlideBar')[0].outerHTML = "<input type='range' id='FrameSlideBar' name='num' min='0' max='" + max + "' step='1' value='0'><span id='val'> 0</span><br>";
-		$('#FrameSlideBar')[0].onchange = function() { self.ChangeFrameSlideBar(self) };
+		$('#FrameSlideBar')[0].outerHTML = "<input type='range' id='FrameSlideBar' min='0' max='" + max + "' step='1' value='0'> <span id='time'>" + min + "</span> <input type='button' id='Play' value='Play'><br>";
+		$('#FrameSlideBar')[0].onchange = function() { self.ChangeFrameSlideBar() };
+		$('#Play')[0].onclick = function() { self.Play() };
+		
+		this.ChangeFrameSlideBar();
 	}
 
-	ChangeFrameSlideBar(self)
+	ChangeFrameSlideBar()
 	{
-		console.log($('#val'));
-		$('#val')[0].innerHTML = $('#FrameSlideBar')[0].value;
+		var frame = $('#FrameSlideBar')[0].value;
+		this.UpdateFrame(frame);
+	}
 
-		self.MINIMAP.TranslateChampion(0, 10 , 0);
+	SetTimeValue(time)
+	{
+		var min = Math.floor(time/60000);
+		var sec = Math.floor((time%60000)/1000);
+
+		$('#time')[0].innerHTML = ('00'+ min).slice(-2) +":" + ('00'+ sec).slice(-2);
+	}
+
+	////////////////////////////////////////////////////////////////////////////////////
+
+	Play()
+	{
+		if(!this.isPlay)
+		{
+			this.AUTO_PLAY_THREAD_NUM = setInterval(this.AutoPlay, this.AUTO_PLAY_INTERVAL, this);
+			$('#Play')[0].value = "Stop";
+			this.isPlay = true;
+		}
+		else
+		{
+			clearInterval(this.AUTO_PLAY_THREAD_NUM);
+			clearInterval(this.MOVE_COMPLEMENT_THREAD_NUM);
+			$('#Play')[0].value = "Play";
+			this.isPlay = false;
+		}
+	}
+
+	AutoPlay(self)
+	{
+		var next_frame = $('#FrameSlideBar')[0].value;
+		var max = $('#FrameSlideBar')[0].max;
+
+		next_frame++;
+
+		clearInterval(self.MOVE_COMPLEMENT_THREAD_NUM);
+
+		if(next_frame < max)
+		{
+			$('#FrameSlideBar')[0].value = next_frame;
+			$('#FrameSlideBar').trigger('change');
+
+			if(next_frame+1 < max)
+			{
+				self.COMPLAMENT_FRAME = 0;
+				self.MOVE_COMPLEMENT_THREAD_NUM = setInterval(self.MoveComplement, self.AUTO_PLAY_INTERVAL/self.MOVE_COMPLEMENT_INTERVAL, self, next_frame, next_frame+1);
+			}
+		}
+		else
+		{
+			$('#Play').trigger('click');
+		}
+	}
+
+	////////////////////////////////////////////////////////////////////////////////////
+
+	MoveComplement(self, frame, frameNext)
+	{
+		var x = [0, 0], y = [0, 0];
+		var diff_x = 0, diff_y = 0;
+
+		for(var i = 0 ; i < self.MATCHDETAIL_DATA.team.length ; ++i)
+		{
+			for(var j = 0 ; j < self.MATCHDETAIL_DATA.team[i].player.length ; ++j)
+			{
+				for(var k in self.JSON_DATA_TIMELINE[frame].playerStats)
+				{
+					if( self.MATCHDETAIL_DATA.team[i].player[j].participantId == self.JSON_DATA_TIMELINE[frame].playerStats[k].participantId )
+					{
+						x[0] = self.JSON_DATA_TIMELINE[frame].playerStats[k].x;
+						y[0] = self.JSON_DATA_TIMELINE[frame].playerStats[k].y;
+						x[1] = self.JSON_DATA_TIMELINE[frameNext].playerStats[k].x;
+						y[1] = self.JSON_DATA_TIMELINE[frameNext].playerStats[k].y;
+						
+						diff_x = (x[1] - x[0])/self.MOVE_COMPLEMENT_INTERVAL;
+						diff_y = (y[1] - y[0])/self.MOVE_COMPLEMENT_INTERVAL;
+
+						diff_x = diff_x * self.COMPLAMENT_FRAME;
+						diff_y = diff_y * self.COMPLAMENT_FRAME;
+
+						self.MINIMAP.TranslateChampion(k-1, x[0]+diff_x, y[0]+diff_y);
+/*						
+						if(k==1)
+						{
+							console.log("MoveComplement : "+frame+", " +frameNext);
+							console.log("x : "+x[0]);
+							console.log("y : "+y[0]);
+						}
+*/
+						break;
+					}
+				}
+			}
+		}
+
+		self.COMPLAMENT_FRAME++;
 	}
 
 	////////////////////////////////////////////////////////////////////////////////////

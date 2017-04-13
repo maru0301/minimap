@@ -12,6 +12,14 @@ class Minimap {
 		this.MAP_MAX_HEIGHT = 512;
 		this.CHAMP_IMG_SCALE = 0.2;
 
+// 		var sn_min = [-120,-120]; // x, y
+		var sn_min = [600,-500]; // x, y
+		var sn_max = [14870,14980];
+
+		this.MINIMAP_SCALE_POS_X = d3.scale.linear().domain([sn_min[0], sn_max[0]])		// 元のサイズ
+													.range([0, this.MAP_MAX_WIDTH]);	// 実際の出力サイズ
+		this.MINIMAP_SCALE_POS_Y = d3.scale.linear().domain([sn_max[1], sn_min[1]])
+													.range([0, this.MAP_MAX_HEIGHT]);
 		this.isInit = true;
 	}
 
@@ -21,7 +29,6 @@ class Minimap {
 	Init(data)
 	{
 		console.log("Init : Minimap");
-		console.log(data);
 
 		this.InitMinimapCanvas();
 		this.InitChampionCanvas(data);
@@ -42,7 +49,7 @@ class Minimap {
 		{
 			$('minimap canvas')[0].width = this.width;
 			$('minimap canvas')[0].height = this.height;
-//			ctx.drawImage(this, 0, 0);
+			ctx.drawImage(this, 0, 0);
 		}, false);
 	}
 	
@@ -83,8 +90,8 @@ class Minimap {
 						width = img_width * self.CHAMP_IMG_SCALE;
 						height = img_height * self.CHAMP_IMG_SCALE;
 
-						ctx = self.CANVAS_CHAMPION[i].canvas.getContext('2d');
-						ctx.drawImage(self.CANVAS_CHAMPION[i].img, 0, 0, img_width, img_height, 0, 0 , width, height);
+//						ctx = self.CANVAS_CHAMPION[i].canvas.getContext('2d');
+//						ctx.drawImage(self.CANVAS_CHAMPION[i].img, 0, 0, img_width, img_height, 0, 0 , width, height);
 					}
 
 					////////////////////////////////////////////////////////////////////////////////////
@@ -105,9 +112,18 @@ class Minimap {
 		var img_height = this.CANVAS_CHAMPION[index].img.height;
 		var width = img_width * this.CHAMP_IMG_SCALE;
 		var height = img_height * this.CHAMP_IMG_SCALE;
+		var pos_x = this.MINIMAP_SCALE_POS_X(x);
+		var pos_y = this.MINIMAP_SCALE_POS_Y(y);
+		
+		//console.log("index : "+index);
+		//console.log("x : " + x + " scale_x : "+ pos_x);
+		//console.log("y : " + y + " scale_y : "+ pos_y);
 
-		ctx.translate(x, y);
+    	ctx.clearRect(0, 0, this.CANVAS_CHAMPION[index].canvas.width, this.CANVAS_CHAMPION[index].canvas.height);
+
+		ctx.translate(pos_x, pos_y);
 		ctx.drawImage(this.CANVAS_CHAMPION[index].img, 0, 0, img_width, img_height, 0, 0 , width, height);
+		ctx.translate(-pos_x, -pos_y);
 	}
 
 	////////////////////////////////////////////////////////////////////////////////////
