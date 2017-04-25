@@ -90,7 +90,9 @@ class Minimap {
 						width = img_width * self.CHAMP_IMG_SCALE;
 						height = img_height * self.CHAMP_IMG_SCALE;
 
-//						ctx = self.CANVAS_CHAMPION[i].canvas.getContext('2d');
+//						self.CANVAS_CHAMPION[i].img_dead = self.CANVAS_CHAMPION[i].img;
+
+
 //						ctx.drawImage(self.CANVAS_CHAMPION[i].img, 0, 0, img_width, img_height, 0, 0 , width, height);
 					}
 
@@ -100,6 +102,8 @@ class Minimap {
 				}
 				loadedCount++;
 			}, false);
+			
+			self.CANVAS_CHAMPION[i].isDead = false;
 		}
 	}
 	
@@ -124,7 +128,23 @@ class Minimap {
 		ctx.translate(pos_x, pos_y);
 		ctx.drawImage(this.CANVAS_CHAMPION[index].img, 0, 0, img_width, img_height, 0, 0 , width, height);
 		ctx.translate(-pos_x, -pos_y);
+		
+						ctx = this.CANVAS_CHAMPION[index].canvas.getContext('2d');
+						var imgd = ctx.getImageData(0, 0, 360, 480);
+						var pix = imgd.data;
+						for (var i = 0, n = pix.length; i < n; i += 4) {
+							var grayscale = pix[i  ] * .3 + pix[i+1] * .59 + pix[i+2] * .11;
+							pix[i  ] = grayscale; // 赤
+							pix[i+1] = grayscale; // 緑
+							pix[i+2] = grayscale; // 青
+							// アルファ
+						}
+						ctx.putImageData(imgd, 0, 0);
 	}
+
+	////////////////////////////////////////////////////////////////////////////////////
+
+	SetDead(index, flag) { this.CANVAS_CHAMPION[index].isDead = flag; }
 
 	////////////////////////////////////////////////////////////////////////////////////
 

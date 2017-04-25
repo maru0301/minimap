@@ -375,6 +375,7 @@ class TimeLine {
 		if(!this.isPlay)
 		{
 			this.AUTO_PLAY_THREAD_NUM = setInterval(this.AutoPlay, this.AUTO_PLAY_INTERVAL, this);
+			this.AutoPlay(this);
 			$('#Play')[0].value = "Stop";
 			this.isPlay = true;
 		}
@@ -419,6 +420,7 @@ class TimeLine {
 	{
 		var x = [0, 0], y = [0, 0];
 		var diff_x = 0, diff_y = 0;
+		var hp = 0;
 
 		for(var i = 0 ; i < self.MATCHDETAIL_DATA.team.length ; ++i)
 		{
@@ -440,6 +442,9 @@ class TimeLine {
 						diff_y = diff_y * self.COMPLAMENT_FRAME;
 
 						self.MINIMAP.TranslateChampion(k-1, x[0]+diff_x, y[0]+diff_y);
+
+						hp = self.JSON_DATA_TIMELINE[frame].playerStats[k].h;
+						self.MINIMAP.SetDead(k-1, hp > 0 ? false : true);
 /*						
 						if(k==1)
 						{
