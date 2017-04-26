@@ -12,8 +12,11 @@ class TimeLine {
 
 		this.JSON_DATA_CHAMP_IMG = new Array();
 		this.JSON_DATA_TIMELINE = {};
+		this.JSON_DATA_TIMELINE_EVENT = {};
+		this.JSON_DATA_ITEM = {};
 
 		this.MATCHDETAIL_DATA = {};
+		this.WARD_DATA = {};
 
 		this.MINIMAP = new Minimap();
 
@@ -147,6 +150,7 @@ class TimeLine {
 
 		var request = [
 			{ url: './php/main.php', data: { func:"GetChampionImage", ver:this.VERSION },  },
+			{ url: './data/json/wcs_timeline.json', data: {},  },
 			{ url: './php/main.php', data: { func:"GetItem", ver:this.VERSION },  },
 		];
 		
@@ -216,6 +220,23 @@ class TimeLine {
 			for(var i = 0 ; i < champ_id.length ; ++i)
 				img_url.push( self.CDN_URL + "/" + self.VERSION + "/img/champion/" + self.GetChampionImgName(champ_id[i]) );
 			
+			////////////////////////////////////////////////////////////////////////////////////////
+
+			self.JSON_DATA_TIMELINE_EVENT = json[1];
+
+			for(var i = 0 ; i < self.JSON_DATA_TIMELINE_EVENT.frames.length ; ++i)
+			{
+				self.JSON_DATA_TIMELINE_EVENT.frames[i].events = self.JSON_DATA_TIMELINE_EVENT.frames[i].events.filter(function(data){
+					if(data.type == "WARD_PLACED")
+						return true;
+					if(data.type == "WARD_KILL")
+						return true;
+					
+					return false;
+				});
+			}
+
+			////////////////////////////////////////////////////////////////////////////////////////
 			self.MINIMAP.Init(img_url);
 			
 			self.MAIN_THREAD_NUM = setInterval(self.Main, self.INIT_WAIT_INTERVAL, self);
@@ -312,31 +333,28 @@ class TimeLine {
 		}
 	}
 
+	GetWardTimelineData()
+	{
+		var index = 0;
+		var time = 0;
+		for(var i = 0 ; i < this.JSON_DATA_TIMELINE.length ; ++i)
+		{
+			index = i / 60;
+			time = this.JSON_DATA_TIMELINE[i].t;
+			for(var j = 0 ; j < this.JSON_DATA_TIMELINE_EVENT.frames[index].events.length ; ++j)
+			{
+
+			}
+		}
+//		this.WARD_DATA[i];
+	}
+
 	////////////////////////////////////////////////////////////////////////////////////
 
 	UpdateFrame(frame)
 	{
 		var time = this.JSON_DATA_TIMELINE[frame].t;
 		this.SetTimeValue(time);
-
-		var x = 0, y = 0;
-
-		for(var i = 0 ; i < this.MATCHDETAIL_DATA.team.length ; ++i)
-		{
-			for(var j = 0 ; j < this.MATCHDETAIL_DATA.team[i].player.length ; ++j)
-			{
-				for(var k in this.JSON_DATA_TIMELINE[frame].playerStats)
-				{
-					if( this.MATCHDETAIL_DATA.team[i].player[j].participantId == this.JSON_DATA_TIMELINE[frame].playerStats[k].participantId )
-					{
-						x = this.JSON_DATA_TIMELINE[frame].playerStats[k].x;
-						y = this.JSON_DATA_TIMELINE[frame].playerStats[k].y;
-						this.MINIMAP.TranslateChampion(k-1, x, y);
-						break;
-					}
-				}
-			}
-		}
 	}
 
 	////////////////////////////////////////////////////////////////////////////////////
@@ -394,7 +412,7 @@ class TimeLine {
 		var max = $('#FrameSlideBar')[0].max;
 
 		next_frame++;
-
+		
 		clearInterval(self.MOVE_COMPLEMENT_THREAD_NUM);
 
 		if(next_frame < max)
@@ -437,7 +455,7 @@ class TimeLine {
 						
 						diff_x = (x[1] - x[0])/self.MOVE_COMPLEMENT_INTERVAL;
 						diff_y = (y[1] - y[0])/self.MOVE_COMPLEMENT_INTERVAL;
-
+						
 						diff_x = diff_x * self.COMPLAMENT_FRAME;
 						diff_y = diff_y * self.COMPLAMENT_FRAME;
 
@@ -445,19 +463,11 @@ class TimeLine {
 
 						hp = self.JSON_DATA_TIMELINE[frame].playerStats[k].h;
 						self.MINIMAP.SetDead(k-1, hp > 0 ? false : true);
-/*						
-						if(k==1)
-						{
-							console.log("MoveComplement : "+frame+", " +frameNext);
-							console.log("x : "+x[0]);
-							console.log("y : "+y[0]);
-						}
-*/
 						break;
 					}
 				}
 			}
-		}
+		}	
 
 		self.COMPLAMENT_FRAME++;
 	}
@@ -468,8 +478,29 @@ class TimeLine {
 	{
 		if( self.MINIMAP.IsInit() == false )
 		{
+			// Init
 			clearInterval(self.MAIN_THREAD_NUM);
 			self.CreateFrameSlideBar();
+			
+			var x = 0, y = 0;
+			var frame = 0;
+
+			for(var i = 0 ; i < self.MATCHDETAIL_DATA.team.length ; ++i)
+			{
+				for(var j = 0 ; j < self.MATCHDETAIL_DATA.team[i].player.length ; ++j)
+				{
+					for(var k in self.JSON_DATA_TIMELINE[frame].playerStats)
+					{
+						if( self.MATCHDETAIL_DATA.team[i].player[j].participantId == self.JSON_DATA_TIMELINE[frame].playerStats[k].participantId )
+						{
+							x = self.JSON_DATA_TIMELINE[frame].playerStats[k].x;
+							y = self.JSON_DATA_TIMELINE[frame].playerStats[k].y;
+							self.MINIMAP.TranslateChampion(k-1, x, y);
+							break;
+						}
+					}
+				}
+			}
 		}
 	}
 }

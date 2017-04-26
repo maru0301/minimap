@@ -72,6 +72,7 @@ class Minimap {
 			self.CANVAS_CHAMPION[i].canvas = newTag;
 
 			self.CANVAS_CHAMPION[i].img = new Image();
+			self.CANVAS_CHAMPION[i].img.crossOrigin  = 'anonymous';
 			self.CANVAS_CHAMPION[i].img.src = url_data[i];
 
 			self.CANVAS_CHAMPION[i].img.addEventListener('load', function()
@@ -90,9 +91,25 @@ class Minimap {
 						width = img_width * self.CHAMP_IMG_SCALE;
 						height = img_height * self.CHAMP_IMG_SCALE;
 
+						ctx = self.CANVAS_CHAMPION[i].canvas.getContext('2d');
+						ctx.drawImage(self.CANVAS_CHAMPION[i].img, 0, 0, img_width, img_height, 0, 0 , width, height);
+
+						self.CANVAS_CHAMPION[i].imgd = ctx.getImageData(0, 0, width, height);
+						var pix = self.CANVAS_CHAMPION[i].imgd.data;
+
+						for (var j = 0, n = pix.length; j < n; j += 4)
+						{
+							var grayscale = pix[j] * .3 + pix[j+1] * .59 + pix[j+2] * .11;
+							pix[j] = grayscale; // 赤
+							pix[j+1] = grayscale; // 緑
+							pix[j+2] = grayscale; // 青
+							// アルファ
+						}
+
+				    	ctx.clearRect(0, 0, self.CANVAS_CHAMPION[i].canvas.width, self.CANVAS_CHAMPION[i].canvas.height);
+//						ctx.putImageData(self.CANVAS_CHAMPION[i].imgd, 0, 0);
+//						self.CANVAS_CHAMPION[i].imgd.data = pix;
 //						self.CANVAS_CHAMPION[i].img_dead = self.CANVAS_CHAMPION[i].img;
-
-
 //						ctx.drawImage(self.CANVAS_CHAMPION[i].img, 0, 0, img_width, img_height, 0, 0 , width, height);
 					}
 
@@ -116,6 +133,8 @@ class Minimap {
 		var img_height = this.CANVAS_CHAMPION[index].img.height;
 		var width = img_width * this.CHAMP_IMG_SCALE;
 		var height = img_height * this.CHAMP_IMG_SCALE;
+		var canvas_width = this.CANVAS_CHAMPION[index].canvas.width;
+		var canvas_height = this.CANVAS_CHAMPION[index].canvas.height;
 		var pos_x = this.MINIMAP_SCALE_POS_X(x);
 		var pos_y = this.MINIMAP_SCALE_POS_Y(y);
 		
@@ -125,21 +144,16 @@ class Minimap {
 
     	ctx.clearRect(0, 0, this.CANVAS_CHAMPION[index].canvas.width, this.CANVAS_CHAMPION[index].canvas.height);
 
-		ctx.translate(pos_x, pos_y);
-		ctx.drawImage(this.CANVAS_CHAMPION[index].img, 0, 0, img_width, img_height, 0, 0 , width, height);
-		ctx.translate(-pos_x, -pos_y);
-		
-						ctx = this.CANVAS_CHAMPION[index].canvas.getContext('2d');
-						var imgd = ctx.getImageData(0, 0, 360, 480);
-						var pix = imgd.data;
-						for (var i = 0, n = pix.length; i < n; i += 4) {
-							var grayscale = pix[i  ] * .3 + pix[i+1] * .59 + pix[i+2] * .11;
-							pix[i  ] = grayscale; // 赤
-							pix[i+1] = grayscale; // 緑
-							pix[i+2] = grayscale; // 青
-							// アルファ
-						}
-						ctx.putImageData(imgd, 0, 0);
+		if(!this.CANVAS_CHAMPION[index].isDead)
+		{
+			ctx.translate(pos_x, pos_y);
+			ctx.drawImage(this.CANVAS_CHAMPION[index].img, 0, 0, img_width, img_height, 0, 0 , width, height);
+			ctx.translate(-pos_x, -pos_y);
+		}
+		else
+		{
+			ctx.putImageData(this.CANVAS_CHAMPION[index].imgd, pos_x, pos_y);
+		}
 	}
 
 	////////////////////////////////////////////////////////////////////////////////////
