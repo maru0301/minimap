@@ -5,6 +5,11 @@ minimap canvas {
 
 minimap_champion canvas {
 	position: absolute;
+	z-index: 10;
+}
+
+minimap_monster canvas {
+	position: absolute;
 	z-index: 1;
 }
 

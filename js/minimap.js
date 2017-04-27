@@ -21,6 +21,11 @@ class Minimap {
 		this.MINIMAP_SCALE_POS_Y = d3.scale.linear().domain([sn_max[1], sn_min[1]])
 													.range([0, this.MAP_MAX_HEIGHT]);
 		this.isInit = true;
+
+		this.MONSTER_IMG_WIDTH = 48;
+		this.MONSTER_IMG_HEIGHT = 48;
+		this.MONSTER_IMG = {};
+		this.MONSTER_IMG_SCALE = 0.5;
 	}
 
 
@@ -32,6 +37,7 @@ class Minimap {
 
 		this.InitMinimapCanvas();
 		this.InitChampionCanvas(data);
+		this.InitMonsterCanvas();
 	}
 
 	////////////////////////////////////////////////////////////////////////////////////
@@ -124,6 +130,18 @@ class Minimap {
 		}
 	}
 	
+	InitMonsterCanvas()
+	{
+		var targetTag = $('minimap_monster canvas')[0];
+		targetTag.width = this.MAP_MAX_WIDTH;
+		targetTag.height = this.MAP_MAX_HEIGHT;
+
+		var ctx = $('minimap_monster canvas')[0].getContext('2d');
+
+		this.MONSTER_IMG = new Image();
+		this.MONSTER_IMG.src = "./data/img/monster.png";
+	}
+	
 	////////////////////////////////////////////////////////////////////////////////////
 
 	TranslateChampion(index, x, y)
@@ -153,6 +171,50 @@ class Minimap {
 		else
 		{
 			ctx.putImageData(this.CANVAS_CHAMPION[index].imgd, pos_x, pos_y);
+		}
+	}
+
+	////////////////////////////////////////////////////////////////////////////////////
+
+	ShowDragon(isDragon,isElder, x ,y)
+	{
+		x = this.MINIMAP_SCALE_POS_X(x);
+		y = this.MINIMAP_SCALE_POS_Y(y);
+
+		var ctx = $('minimap_monster canvas')[0].getContext('2d');
+    	ctx.clearRect(x, y, this.MONSTER_IMG_WIDTH, this.MONSTER_IMG_HEIGHT);
+
+		if(isDragon || isElder)
+		{
+			var width = this.MONSTER_IMG_WIDTH * this.MONSTER_IMG_SCALE;
+			var height = this.MONSTER_IMG_HEIGHT * this.MONSTER_IMG_SCALE;
+			var diff = 0;
+
+			if(isElder)
+				diff = this.MONSTER_IMG_WIDTH * 1;
+
+			ctx.drawImage(this.MONSTER_IMG, 0+diff, 0, this.MONSTER_IMG_WIDTH, this.MONSTER_IMG_HEIGHT, x, y, width, height);
+		}
+	}
+
+	ShowBaron(isRift, isBaron, x ,y)
+	{
+		x = this.MINIMAP_SCALE_POS_X(x);
+		y = this.MINIMAP_SCALE_POS_Y(y);
+
+		var ctx = $('minimap_monster canvas')[0].getContext('2d');
+    	ctx.clearRect(x, y, this.MONSTER_IMG_WIDTH, this.MONSTER_IMG_HEIGHT);
+
+		if(isRift || isBaron)
+		{
+			var width = this.MONSTER_IMG_WIDTH * this.MONSTER_IMG_SCALE;
+			var height = this.MONSTER_IMG_HEIGHT * this.MONSTER_IMG_SCALE;
+			var diff = this.MONSTER_IMG_WIDTH * 2;
+
+			if(isBaron)
+				diff = this.MONSTER_IMG_WIDTH * 3;
+			
+			ctx.drawImage(this.MONSTER_IMG, 0+diff, 0, this.MONSTER_IMG_WIDTH, this.MONSTER_IMG_HEIGHT, x, y, width, height);
 		}
 	}
 

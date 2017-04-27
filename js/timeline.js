@@ -16,7 +16,7 @@ class TimeLine {
 		this.JSON_DATA_ITEM = {};
 
 		this.MATCHDETAIL_DATA = {};
-		this.WARD_DATA = {};
+		this.TIMELINE_EVENT_DATA = [];
 
 		this.MINIMAP = new Minimap();
 
@@ -30,6 +30,27 @@ class TimeLine {
 		this.MOVE_COMPLEMENT_INTERVAL = 30;
 		this.MOVE_COMPLEMENT_THREAD_NUM = 0;
 		this.COMPLAMENT_FRAME = 0;
+
+		this.MONSTER_POS = [
+			[9900, 4400],	// dragon, elder
+			[5050, 10700],	// rift, baron
+		];
+
+		this.isDragon = false;
+		this.isBaron = false;
+
+		this.MONSTER_START_TIME = [
+			(2*60+30), // dragon
+			(35*60), // elder
+			(10*60), // rift
+			(20*60), // baron
+		];
+		this.MONSTER_RESPAWN_TIME = [
+			(6*60), // dragon
+			(10*60), // elder
+			-1, // rift
+			(7*60), // baron
+		];
 	}
 
 	GetMatchData(data)
@@ -227,14 +248,14 @@ class TimeLine {
 			for(var i = 0 ; i < self.JSON_DATA_TIMELINE_EVENT.frames.length ; ++i)
 			{
 				self.JSON_DATA_TIMELINE_EVENT.frames[i].events = self.JSON_DATA_TIMELINE_EVENT.frames[i].events.filter(function(data){
-					if(data.type == "WARD_PLACED")
-						return true;
-					if(data.type == "WARD_KILL")
+					if(data.type == "ELITE_MONSTER_KILL")
 						return true;
 					
 					return false;
 				});
 			}
+
+			self.GetMonsterTimelineData();
 
 			////////////////////////////////////////////////////////////////////////////////////////
 			self.MINIMAP.Init(img_url);
@@ -333,20 +354,93 @@ class TimeLine {
 		}
 	}
 
-	GetWardTimelineData()
+	GetMonsterTimelineData()
 	{
 		var index = 0;
 		var time = 0;
+		var sec_time = 0;
+		var isDragon = false;
+		var isElderDragon = false;
+		var isRiftHerald = false;
+		var isBaron = false;
+		var isKillDragon = false;
+		var dragonRespawnTime = 0;
+		var baronRespawnTime = 0;
+
 		for(var i = 0 ; i < this.JSON_DATA_TIMELINE.length ; ++i)
 		{
-			index = i / 60;
+			isDragon = false;
+			isBaron = false;
+
+			index = Math.floor(i / 60);
 			time = this.JSON_DATA_TIMELINE[i].t;
+			sec_time = Math.floor(time/1000);
+//			console.log(this.JSON_DATA_TIMELINE_EVENT.frames[index].events);
+
+			if(this.MONSTER_START_TIME[3] <= sec_time)
+				isRiftHerald = true;
+			else if(this.MONSTER_START_TIME[2] <= sec_time)
+				isBaron = true;
+
+			if(dragonRespawnTime < time)
+			{
+				if(isKillDragon)
+					isElderDragon = true;
+				else if(this.MONSTER_START_TIME[0] <= sec_time)
+					isDragon = true;
+			}
+
 			for(var j = 0 ; j < this.JSON_DATA_TIMELINE_EVENT.frames[index].events.length ; ++j)
 			{
+				if(this.JSON_DATA_TIMELINE_EVENT.frames[index].events[j].timestamp > time)
+				{
+					if(this.JSON_DATA_TIMELINE_EVENT.frames[index].events[j].type == "ELITE_MONSTER_KILL")
+					{
+						switch(this.JSON_DATA_TIMELINE_EVENT.frames[index].events[j].monsterType)
+						{
+							case "DRAGON" :
+								if(dragonRespawnTime <= 0)
+								{
+									dragonRespawnTime = (this.MONSTER_RESPAWN_TIME[0]*1000)+time;
+									if(this.MONSTER_START_TIME[1] <= sec_time)
+									{
+										dragonRespawnTime = (this.MONSTER_RESPAWN_TIME[1]*1000)+timr;
+										isKillDragon = true;
+									}
+									isDragon = false;
+									isElderDragon = false;
+								}
+							break;
+							case "RIFTHERALD" :
+							break;
+							case "BARON_NASHOR" :
+							break;
+						}
+					}
+				}
+			}
+			if(this.TIMELINE_EVENT_DATA[i] == undefined)
+				this.TIMELINE_EVENT_DATA[i] = {};
+			
+			this.TIMELINE_EVENT_DATA[i].MONSTER = {};
+			this.TIMELINE_EVENT_DATA[i].MONSTER.isDragon = isDragon;
+			this.TIMELINE_EVENT_DATA[i].MONSTER.isElderDragon = isElderDragon;
+			this.TIMELINE_EVENT_DATA[i].MONSTER.isRiftHerald = isRiftHerald;
+			this.TIMELINE_EVENT_DATA[i].MONSTER.isBaron = isBaron;
+			this.TIMELINE_EVENT_DATA[i].MONSTER.t = time;
+		}
 
+		for(var i = 0 ; i < this.JSON_DATA_TIMELINE_EVENT.frames.length ; ++i)
+		{
+			for(var j = 0 ; j < this.JSON_DATA_TIMELINE_EVENT.frames[i].events.length ; ++j)
+			{
+				if(this.JSON_DATA_TIMELINE_EVENT.frames[i].events[j].type == "ELITE_MONSTER_KILL")
+				{
+					console.log(this.JSON_DATA_TIMELINE_EVENT.frames[i].events[j]);
+					console.log(this.JSON_DATA_TIMELINE_EVENT.frames[i].events[j].monsterType);
+				}
 			}
 		}
-//		this.WARD_DATA[i];
 	}
 
 	////////////////////////////////////////////////////////////////////////////////////
@@ -423,7 +517,7 @@ class TimeLine {
 			if(next_frame+1 < max)
 			{
 				self.COMPLAMENT_FRAME = 0;
-				self.MOVE_COMPLEMENT_THREAD_NUM = setInterval(self.MoveComplement, self.AUTO_PLAY_INTERVAL/self.MOVE_COMPLEMENT_INTERVAL, self, next_frame, next_frame+1);
+				self.MOVE_COMPLEMENT_THREAD_NUM = setInterval(self.UpdateGame, self.AUTO_PLAY_INTERVAL/self.MOVE_COMPLEMENT_INTERVAL, self, next_frame, next_frame+1);
 			}
 		}
 		else
@@ -434,42 +528,104 @@ class TimeLine {
 
 	////////////////////////////////////////////////////////////////////////////////////
 
-	MoveComplement(self, frame, frameNext)
+	UpdateGame(self, frame, frameNext)
 	{
+		// Champion
+		self.UpdateChampion(frame, frameNext);
+
+		// Monster
+		self.UpdateMonster(frame);
+
+		self.COMPLAMENT_FRAME++;
+	}
+
+	////////////////////////////////////////////////////////////////////////////////////
+
+	UpdateChampion(frame, frameNext)
+	{
+		// Champion
 		var x = [0, 0], y = [0, 0];
 		var diff_x = 0, diff_y = 0;
 		var hp = 0;
 
-		for(var i = 0 ; i < self.MATCHDETAIL_DATA.team.length ; ++i)
+		for(var i = 0 ; i < this.MATCHDETAIL_DATA.team.length ; ++i)
 		{
-			for(var j = 0 ; j < self.MATCHDETAIL_DATA.team[i].player.length ; ++j)
+			for(var j = 0 ; j < this.MATCHDETAIL_DATA.team[i].player.length ; ++j)
 			{
-				for(var k in self.JSON_DATA_TIMELINE[frame].playerStats)
+				for(var k in this.JSON_DATA_TIMELINE[frame].playerStats)
 				{
-					if( self.MATCHDETAIL_DATA.team[i].player[j].participantId == self.JSON_DATA_TIMELINE[frame].playerStats[k].participantId )
+					if( this.MATCHDETAIL_DATA.team[i].player[j].participantId == this.JSON_DATA_TIMELINE[frame].playerStats[k].participantId )
 					{
-						x[0] = self.JSON_DATA_TIMELINE[frame].playerStats[k].x;
-						y[0] = self.JSON_DATA_TIMELINE[frame].playerStats[k].y;
-						x[1] = self.JSON_DATA_TIMELINE[frameNext].playerStats[k].x;
-						y[1] = self.JSON_DATA_TIMELINE[frameNext].playerStats[k].y;
+						x[0] = this.JSON_DATA_TIMELINE[frame].playerStats[k].x;
+						y[0] = this.JSON_DATA_TIMELINE[frame].playerStats[k].y;
+						x[1] = this.JSON_DATA_TIMELINE[frameNext].playerStats[k].x;
+						y[1] = this.JSON_DATA_TIMELINE[frameNext].playerStats[k].y;
 						
-						diff_x = (x[1] - x[0])/self.MOVE_COMPLEMENT_INTERVAL;
-						diff_y = (y[1] - y[0])/self.MOVE_COMPLEMENT_INTERVAL;
+						diff_x = (x[1] - x[0])/this.MOVE_COMPLEMENT_INTERVAL;
+						diff_y = (y[1] - y[0])/this.MOVE_COMPLEMENT_INTERVAL;
 						
-						diff_x = diff_x * self.COMPLAMENT_FRAME;
-						diff_y = diff_y * self.COMPLAMENT_FRAME;
+						diff_x = diff_x * this.COMPLAMENT_FRAME;
+						diff_y = diff_y * this.COMPLAMENT_FRAME;
 
-						self.MINIMAP.TranslateChampion(k-1, x[0]+diff_x, y[0]+diff_y);
+						this.MINIMAP.TranslateChampion(k-1, x[0]+diff_x, y[0]+diff_y);
 
-						hp = self.JSON_DATA_TIMELINE[frame].playerStats[k].h;
-						self.MINIMAP.SetDead(k-1, hp > 0 ? false : true);
+						hp = this.JSON_DATA_TIMELINE[frame].playerStats[k].h;
+						this.MINIMAP.SetDead(k-1, hp > 0 ? false : true);
 						break;
 					}
 				}
 			}
-		}	
+		}
+	}
 
-		self.COMPLAMENT_FRAME++;
+	UpdateMonster(frame)
+	{
+		var isDragon = this.isDragon;
+		var isBaron = this.isBaron;
+
+		// dragon
+		if(this.MONSTER_START_TIME[0] <= frame)
+			isDragon = true;
+
+		// rift		
+		if(this.MONSTER_START_TIME[2] <= frame)
+			isBaron = true;
+		
+		if(isDragon != this.isDragon)
+		{
+			if(this.MONSTER_START_TIME[1] > frame)
+				this.MINIMAP.ShowDragon(isDragon, false, this.MONSTER_POS[0][0], this.MONSTER_POS[0][1]); // Dragon
+			else
+				this.MINIMAP.ShowDragon(false, isDragon, this.MONSTER_POS[0][0], this.MONSTER_POS[0][1]); // Elder
+			
+			this.isDragon = isDragon;
+		}
+		else
+		{
+			if(isDragon)
+			{
+				if(this.MONSTER_START_TIME[1] == frame)
+					this.MINIMAP.ShowDragon(false, isDragon, this.MONSTER_POS[0][0], this.MONSTER_POS[0][1]); // Elder
+			}
+		}
+
+		if(isBaron != this.isBaron)
+		{
+			if(this.MONSTER_START_TIME[3] > frame)
+				this.MINIMAP.ShowBaron(isBaron, false, this.MONSTER_POS[1][0], this.MONSTER_POS[1][1]);
+			else
+				this.MINIMAP.ShowBaron( false, isBaron, this.MONSTER_POS[1][0], this.MONSTER_POS[1][1]);
+
+			this.isBaron = isBaron;
+		}
+		else
+		{
+			if(isBaron)
+			{
+				if(this.MONSTER_START_TIME[2] == frame)
+					this.MINIMAP.ShowBaron( false, isBaron, this.MONSTER_POS[1][0], this.MONSTER_POS[1][1]);
+			}
+		}
 	}
 
 	////////////////////////////////////////////////////////////////////////////////////
