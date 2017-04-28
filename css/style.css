@@ -13,6 +13,11 @@ minimap_monster canvas {
 	z-index: 1;
 }
 
+minimap_object canvas {
+	position: absolute;
+	z-index: 1;
+}
+
 input {
 	width : 300px;
 }
